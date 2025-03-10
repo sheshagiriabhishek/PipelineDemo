@@ -1,0 +1,39 @@
+pipeline {
+    agent any
+    stages {
+        stage('Checkout') {
+            steps {
+                git 'https://github.com/<your-username>/<your-repo>.git'
+            }
+        }
+        stage('Build Jar') {
+            steps {
+                sh 'javac -d bin src/*.java'
+                sh 'jar cvf HelloWorldPipelineProject.jar -C bin .'
+            }
+        }
+        stage('Build Docker Image') {
+            steps {
+                sh 'docker build -t my-docker-image .'
+            }
+        }
+        stage('Test/Run Docker Image') {
+            steps {
+                sh 'docker run --rm -d -p 8080:8080 --name test_container my-docker-image'
+                // e.g., test with 'curl http://localhost:8080'
+                sh 'docker stop test_container'
+            }
+        }
+        stage('Push to Registry') {
+            when {
+                expression { return env.BRANCH_NAME == 'main' }
+            }
+            steps {
+                // Example of pushing to Docker Hub
+                sh 'docker login -u $DOCKERHUB_USERNAME -p $DOCKERHUB_PASSWORD'
+                sh 'docker tag my-docker-image $DOCKERHUB_USERNAME/my-docker-image:latest'
+                sh 'docker push $DOCKERHUB_USERNAME/my-docker-image:latest'
+            }
+        }
+    }
+}
